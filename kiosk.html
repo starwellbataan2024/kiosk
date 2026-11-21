@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Time Clock</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:radial-gradient(1200px 700px at 20% -10%,#3b2a1f 0,#17110d 60%);color:#f6efe8;display:flex;justify-content:center;padding:18px 14px 70px;min-height:100vh}
+.wrap{width:100%;max-width:520px;text-align:center}
+.shop{font-size:15px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-top:4px}
+.clk{font-size:52px;font-weight:700;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.dt{opacity:.75;margin-bottom:14px}
+.card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:22px;padding:14px;backdrop-filter:blur(8px)}
+.cam{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:16px;overflow:hidden}
+.cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.frame{position:absolute;right:6%;bottom:8%;width:34%;aspect-ratio:1;border:3px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
+.fhint{position:absolute;left:0;right:0;top:8px;font-size:13px;opacity:.9;text-shadow:0 1px 3px #000}
+.msg{margin:12px 4px 4px;min-height:1.6em;font-size:17px}
+.msg.bad{color:#ffb4a8}
+.row{display:flex;gap:8px;margin-top:10px}
+input{flex:1;font:inherit;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff;min-width:0}
+textarea{width:100%;font:inherit;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.35);color:#fff}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:12px 18px;background:#f3e3d0;color:#2a1c12;font-weight:600}
+button.g{background:rgba(255,255,255,.14);color:#fff}
+button:disabled{opacity:.4}
+.hi{font-size:28px;font-weight:700}
+.nx{font-size:20px;opacity:.85;margin:4px 0 10px}
+.dots{display:flex;gap:12px;justify-content:center;margin:10px 0}
+.dots i{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.6)}
+.dots i.on{background:#fff}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:340px;margin:10px auto}
+.pad button{font-size:26px;padding:16px 0;background:rgba(255,255,255,.14);color:#fff}
+.res{padding:26px 8px}
+.res .ic{font-size:64px}
+.big{font-size:30px;font-weight:700}
+.big2{font-size:22px;opacity:.9;margin-top:4px}
+.foot{position:fixed;left:0;right:0;bottom:0;padding:8px 14px calc(8px + env(safe-area-inset-bottom));font-size:12px;opacity:.55;display:flex;justify-content:space-between}
+.foot a{color:inherit;text-decoration:underline;cursor:pointer}
+.ok{color:#b8f0c8}.bd{color:#ffb4a8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="shop" id="shop"></div>
+  <div class="clk" id="clk">--:--</div>
+  <div class="dt" id="dt"></div>
+  <div class="card" id="box"></div>
+</div>
+<div class="foot"><span id="st"></span><a onclick="setupScreen()">Setup</a></div>
+
+<script>
+/* ============ BrewCost Kiosk (live camera) ============ */
+const LIB1='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',LIB2='https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+const $=s=>document.querySelector(s),esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let CFG=null,INFO={photo:1,manual:false,shop:'',tz:'Asia/Manila'},S={stream:null,mode:'scan',busy:0,code:'',who:null,pin:'',snap:'',to:0,sc:0,camBad:0,cv:null};
+
+/* ---------- storage / setup ---------- */
+function loadCfg(){try{CFG=JSON.parse(localStorage.getItem('bc_kiosk')||'null')}catch(e){CFG=null}return CFG&&CFG.u&&CFG.k}
+function setupScreen(msg){
+  stopAll();
+  $('#box').innerHTML=`<div class="hi" style="font-size:22px">Kiosk setup</div><div class="msg ${msg?'bad':''}">${esc(msg||'Paste the setup code from BrewCost: Payroll > Time clock > Kiosk.')}</div><textarea id="code" rows="4" placeholder="Setup code"></textarea><div class="row"><button onclick="saveSetup()" style="flex:1">Save</button>${loadCfg()?'<button class="g" onclick="start()">Cancel</button>':''}</div>`;
+}
+async function saveSetup(){
+  try{const o=JSON.parse(atob($('#code').value.trim()));if(!o.u||!o.k)throw 0;
+    if(!/^https:\/\/script\.google\.com\/(a\/[^\/]+\/)?macros\/s\/[^\/]+\/exec$/.test(o.u))throw new Error('The web app link in this code is not a published /exec link. Deploy the app as a Web app, open Show setup code again.');
+    localStorage.setItem('bc_kiosk',JSON.stringify(o));start()}
+  catch(e){setupScreen(e&&e.message?e.message:'That setup code is not valid.')}
+}
+
+/* ---------- server calls ---------- */
+async function api(fn,args){
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),30000);
+  try{const r=await fetch(CFG.u,{method:'POST',body:JSON.stringify(Object.assign({key:CFG.k,fn:fn},args||{})),redirect:'follow',signal:ac.signal});
+    const j=await r.json();if(!j.ok)throw new Error(j.error||'Error');return j.r}
+  catch(e){if(e.name==='AbortError')throw new Error('The server took too long. Check the internet and try again.');
+    if(e instanceof TypeError)throw new Error('Cannot reach the server. Check the internet. If this keeps happening, the app must be deployed with access "Anyone".');
+    throw e}
+  finally{clearTimeout(t)}
+}
+
+/* ---------- clock ---------- */
+function tick(){const n=new Date(),o={timeZone:INFO.tz||undefined};
+  try{$('#clk').textContent=n.toLocaleTimeString('en-PH',Object.assign({hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true},o));
+      $('#dt').textContent=n.toLocaleDateString('en-PH',Object.assign({weekday:'long',year:'numeric',month:'long',day:'numeric'},o))}catch(e){}}
+setInterval(tick,1000);tick();
+const t12=h=>{const m=/^(\d{1,2}):(\d{2})/.exec(h||'');if(!m)return h||'';let H=+m[1];const ap=H>=12?'PM':'AM';H=H%12||12;return H+':'+m[2]+' '+ap};
+
+/* ---------- camera ---------- */
+function stopAll(){clearInterval(S.sc);clearTimeout(S.to);S.sc=0;if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}}
+async function openCam(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('NoApi');
+  const tries=[{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false},{video:{facingMode:'user'},audio:false},{video:true,audio:false}];
+  let last;for(const c of tries){try{return await navigator.mediaDevices.getUserMedia(c)}catch(e){last=e;if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError'||e.name==='NotFoundError'))break}}
+  throw last;
+}
+function camErr(e){const n=(e&&e.name)||'',m=String((e&&e.message)||e||'');
+  if(m==='NoApi')return 'This browser cannot open the camera. Use Chrome or Safari and open this page with https://.';
+  if(n==='NotAllowedError'||n==='SecurityError')return 'Camera is blocked. Tap the lock icon in the address bar, set Camera to Allow, then tap Try again.';
+  if(n==='NotFoundError')return 'No camera was found on this device.';
+  if(n==='NotReadableError'||n==='AbortError')return 'The camera is used by another app or tab. Close it, then tap Try again.';
+  return 'Camera error: '+m.replace(/\.$/,'')+'.'}
+function needLib(){return window.jsQR?Promise.resolve():new Promise((ok,no)=>{const L=u=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>u===LIB1?L(LIB2):no(new Error('QR reader could not load'));document.head.appendChild(s)};L(LIB1)})}
+async function startCam(){
+  const bad=e=>{S.camBad=1;const m=$('#m');if(m){m.className='msg bad';m.innerHTML=esc(camErr(e))+'<div class="row" style="justify-content:center"><button onclick="startCam()">Try again</button></div>'+(INFO.manual?'<div style="font-size:13px;opacity:.8;margin-top:6px">Or type your employee number below.</div>':'')}};
+  try{if(!S.stream)S.stream=await openCam();if(S.mode==='scan'||S.mode==='pin')attach();S.camBad=0;const m=$('#m');if(m&&S.mode==='scan'){m.className='msg';m.textContent='Hold your QR card next to your face'}}
+  catch(e){bad(e);return}
+  try{await needLib();clearInterval(S.sc);S.sc=setInterval(loop,280)}
+  catch(e){const m=$('#m');if(m){m.className='msg bad';m.textContent='Camera is on, but the QR reader could not load. Check the internet.'}}
+}
+function attach(){const v=$('#v');if(v&&S.stream&&v.srcObject!==S.stream){v.srcObject=S.stream;v.play&&v.play().catch(()=>{})}}
+function grab(w){const v=$('#v');if(!S.stream||!v||!v.videoWidth)return '';const c=document.createElement('canvas');c.width=w;c.height=Math.round(v.videoHeight*w/v.videoWidth);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.6)}
+/* ONE picture: the frame where the QR is read (face + QR together) is the punch photo. */
+function loop(){
+  if(S.mode!=='scan'||S.busy||!window.jsQR)return;const v=$('#v');if(!v||!v.videoWidth)return;
+  const w=480,h=Math.round(v.videoHeight*w/v.videoWidth),c=S.cv||(S.cv=document.createElement('canvas'));c.width=w;c.height=h;
+  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(v,0,0,w,h);
+  const r=jsQR(x.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});
+  if(r&&/^BC1\|/.test(r.data)){S.snap=c.toDataURL('image/jpeg',.6);who(r.data)}
+}
+async function fromFile(inp){
+  const f=inp.files&&inp.files[0];inp.value='';if(!f||S.busy)return;
+  try{await needLib();
+    const img=await new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);ok(i)};i.onerror=()=>no(new Error('Could not read the picture.'));i.src=u});
+    const W=Math.min(1000,img.naturalWidth),H=Math.round(img.naturalHeight*W/img.naturalWidth),c=document.createElement('canvas');c.width=W;c.height=H;
+    const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,W,H);
+    const r=jsQR(x.getImageData(0,0,W,H).data,W,H,{inversionAttempts:'attemptBoth'});
+    if(!r||!/^BC1\|/.test(r.data)){scan('QR not found. Hold the card near your face and try again.',true);return}
+    const q=document.createElement('canvas');q.width=640;q.height=Math.round(H*640/W);q.getContext('2d').drawImage(c,0,0,q.width,q.height);
+    S.snap=q.toDataURL('image/jpeg',.6);who(r.data)
+  }catch(e){scan(e.message||String(e),true)}
+}
+
+/* ---------- screens ---------- */
+function scan(msg,bad){
+  S.mode='scan';S.busy=0;S.code='';S.who=null;S.pin='';S.snap='';
+  $('#box').innerHTML=`<div class="cam"><video id="v" playsinline muted autoplay></video><div class="frame"></div><div class="fhint">Show your face and QR card together</div></div><input type="file" id="f" accept="image/*" capture="user" hidden onchange="fromFile(this)"><div id="m" class="msg ${bad?'bad':''}">${esc(msg||(S.stream?'Hold your QR card next to your face':'Starting camera...'))}</div>${S.camBad?'<div class="row" style="justify-content:center"><button onclick="document.getElementById(\'f\').click()">Take photo with QR</button></div>':''}${INFO.manual?`<div class="row"><input id="en" placeholder="Employee no." autocomplete="off" onkeydown="if(event.key==='Enter')who(this.value.trim())"><button onclick="who(document.getElementById('en').value.trim())">Go</button></div>`:''}`;
+  attach();
+}
+async function who(code){
+  if(S.busy||!code)return;S.busy=1;if(!S.snap)S.snap=grab(480);
+  try{const w=await api('clockWho',{code:code});
+    if(w.done){back('You already finished all 4 punches today, '+w.Name+'.',false,3500);return}
+    S.code=code;S.who=w;S.pin='';S.mode='pin';S.busy=0;pinUI()}
+  catch(e){if(/Kiosk key is not valid|not set up/.test(e.message)){setupScreen(e.message);return}back(e.message||String(e),true,3500)}
+}
+function back(msg,bad,ms){S.busy=1;S.mode='wait';$('#box').innerHTML=`<div class="res"><div class="ic ${bad?'bd':''}">${bad?'&#10060;':'&#8505;&#65039;'}</div><div class="big" style="font-size:22px">${esc(msg)}</div></div>`;clearTimeout(S.to);S.to=setTimeout(()=>scan(),ms||3000)}
+function pinUI(msg){
+  const w=S.who,d='<i class="on"></i>'.repeat(S.pin.length)+'<i></i>'.repeat(Math.max(0,4-S.pin.length));
+  $('#box').innerHTML=`<div class="hi">Hi, ${esc(w.Name)}!</div><div class="nx">${esc(w.label)}</div><div class="dots">${d}</div><div class="msg bad">${esc(msg||'')}</div><div class="pad">${[1,2,3,4,5,6,7,8,9,'C',0,'DEL'].map(k=>`<button type="button" onclick="key('${k}')">${k==='DEL'?'&#9003;':k}</button>`).join('')}</div><div class="row" style="justify-content:center"><button class="g" onclick="scan()">Cancel</button><button onclick="submit()" ${S.pin.length<4?'disabled':''} style="padding:12px 40px">OK</button></div>`;
+}
+function key(k){if(S.mode!=='pin'||S.busy)return;if(k==='C')S.pin='';else if(k==='DEL')S.pin=S.pin.slice(0,-1);else if(S.pin.length<6)S.pin+=k;pinUI()}
+addEventListener('keydown',e=>{if(S.mode!=='pin'||S.busy)return;if(/^\d$/.test(e.key))key(e.key);else if(e.key==='Backspace')key('DEL');else if(e.key==='Enter'&&S.pin.length>=4)submit()});
+async function submit(){
+  if(S.busy||S.pin.length<4)return;S.busy=1;const photo=INFO.photo>0?S.snap:'';
+  try{const r=await api('clockPunch',{code:S.code,pin:S.pin,photo:photo});S.mode='wait';
+    $('#box').innerHTML=`<div class="res"><div class="ic ok">&#9989;</div><div class="big">${esc(r.Name)}</div><div class="big2">${esc(r.label)} &middot; ${esc(t12(r.time))}</div>${r.last?'<div class="msg">Thank you, see you tomorrow!</div>':''}${r.photo?'':'<div class="msg" style="font-size:14px;opacity:.7">No photo was saved.</div>'}</div>`;
+    clearTimeout(S.to);S.to=setTimeout(()=>scan(),3500)}
+  catch(e){const m=e.message||String(e);if(/Wrong PIN/.test(m)&&!/Locked/.test(m)){S.busy=0;S.pin='';pinUI(m)}else back(m,true,3500)}
+}
+
+/* ---------- start ---------- */
+async function start(){
+  stopAll();
+  if(!loadCfg()){setupScreen();return}
+  $('#box').innerHTML='<div class="msg">Connecting...</div>';
+  try{INFO=Object.assign(INFO,await api('clockInfo'));$('#shop').textContent=INFO.shop||'';document.title=(INFO.shop?INFO.shop+' - ':'')+'Time Clock';$('#st').textContent=''}
+  catch(e){if(/Kiosk key is not valid|not set up/.test(e.message)){setupScreen(e.message);return}
+    $('#box').innerHTML=`<div class="msg bad">${esc(e.message)}</div><div class="row" style="justify-content:center"><button onclick="start()">Try again</button></div>`;return}
+  scan();
+  startCam();
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}if(S.mode==='scan'&&S.stream&&!S.stream.active)startCam()}});
+start();
+</script>
+</body>
+</html>
