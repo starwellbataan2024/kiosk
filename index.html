@@ -15,8 +15,8 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;colo
 .clk{font-size:calc(clamp(34px,6vw,52px)*var(--fs,1));font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
 .dt{opacity:.75;margin:0}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 4px 8px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:12px;text-align:left}#logo{height:calc(56px*var(--fs,1));max-width:40vw;object-fit:contain}.tm{text-align:right}
 .card{background:var(--cd);border:1px solid var(--bd);border-radius:22px;padding:12px;backdrop-filter:blur(8px)}
-.cam{position:relative;width:100%;height:calc((100vh - 150px)*var(--ch,1));min-height:260px;margin:0 auto;background:#000;border-radius:18px;overflow:hidden}
-.cam video{width:100%;height:100%;object-fit:var(--fit,contain);transform:scaleX(-1)}
+.cam{position:relative;width:min(100%,calc((100vh - 150px)*var(--ch,1)*var(--ar,1.3333)));aspect-ratio:var(--ar,1.3333);margin:0 auto;background:#000;border-radius:18px;overflow:hidden}.cam.full{width:100%;height:calc((100vh - 150px)*var(--ch,1));aspect-ratio:auto}
+.cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .frame{position:absolute;left:60%;top:40%;width:30%;height:40%;border:4px solid var(--ac);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
 .fhint{position:absolute;left:0;right:0;top:10px;font-size:calc(15px*var(--fs,1));color:#fff;text-shadow:0 1px 4px #000}
 .msg{margin:10px 4px 4px;min-height:1.6em;font-size:calc(18px*var(--fs,1))}
@@ -97,7 +97,7 @@ const t12=h=>{const m=/^(\d{1,2}):(\d{2})/.exec(h||'');if(!m)return h||'';let H=
 function stopAll(){clearInterval(S.sc);clearTimeout(S.to);S.sc=0;if(S.stream){S.stream.getTracks().forEach(t=>t.stop());S.stream=null}}
 async function openCam(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('NoApi');
-  const tries=[{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false},{video:{facingMode:'user'},audio:false},{video:true,audio:false}];
+  const tries=[{video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false},{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false},{video:{facingMode:'user'},audio:false},{video:true,audio:false}];
   let last;for(const c of tries){try{return await navigator.mediaDevices.getUserMedia(c)}catch(e){last=e;if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError'||e.name==='NotFoundError'))break}}
   throw last;
 }
@@ -120,6 +120,7 @@ function attach(){const v=$('#v');if(v&&S.stream&&v.srcObject!==S.stream){v.srcO
 /* put the QR square on the part of the camera picture that is really visible (works for "whole picture" and "zoomed") */
 let CQ=32,CF='contain';
 function fitFrame(){const b=$('.cam'),v=$('#v'),f=$('.frame');if(!b||!v||!f)return;
+  b.classList.toggle('full',CF==='cover');if(v.videoWidth&&v.videoHeight)document.documentElement.style.setProperty('--ar',(v.videoWidth/v.videoHeight).toFixed(4));
   const cw=b.clientWidth,ch=b.clientHeight,vw=v.videoWidth,vh=v.videoHeight;if(!cw||!ch)return;
   let x0=0,y0=0,x1=cw,y1=ch;
   if(vw&&vh){const k=CF==='cover'?Math.max(cw/vw,ch/vh):Math.min(cw/vw,ch/vh),dw=vw*k,dh=vh*k,l=(cw-dw)/2,t=(ch-dh)/2;x0=Math.max(0,l);y0=Math.max(0,t);x1=Math.min(cw,l+dw);y1=Math.min(ch,t+dh)}
@@ -221,7 +222,7 @@ function drawSet(){const d=DR;
   <label>Shop name (leave empty to use the name from BrewCost)</label><input id="sn" value="${esc(d.name)}" placeholder="${esc(INFO.shop||'Shop name')}" oninput="DR.name=this.value;applyUI(DR)">
   <label>Company logo</label><div class="row" style="margin:0"><input type="file" accept="image/*" onchange="pickLogo(this)">${d.logo?'<button class="g" onclick="DR.logo=\'\';drawSet();applyUI(DR)">Remove</button>':''}</div>
   <label>Text size: ${d.fs||100}%</label><input type="range" min="80" max="160" step="5" value="${d.fs||100}" oninput="DR.fs=+this.value;applyUI(DR);this.previousElementSibling.textContent='Text size: '+this.value+'%'">
-  <label>Camera view</label><select onchange="DR.fit=this.value;applyUI(DR)"><option value="contain" ${d.fit!=='cover'?'selected':''}>Show the whole picture (no zoom)</option><option value="cover" ${d.fit==='cover'?'selected':''}>Fill the box (zoomed in)</option></select>
+  <label>Camera view</label><select onchange="DR.fit=this.value;applyUI(DR)"><option value="contain" ${d.fit!=='cover'?'selected':''}>Whole picture, box fits it (no zoom)</option><option value="cover" ${d.fit==='cover'?'selected':''}>Fill the whole area (zoomed in)</option></select>
   <label>Camera size: ${d.camh||100}%</label><input type="range" min="50" max="100" step="5" value="${d.camh||100}" oninput="DR.camh=+this.value;applyUI(DR);this.previousElementSibling.textContent='Camera size: '+this.value+'%'">
   <label>QR square size: ${d.qs||32}%</label><input type="range" min="12" max="45" step="1" value="${d.qs||32}" oninput="DR.qs=+this.value;applyUI(DR);this.previousElementSibling.textContent='QR square size: '+this.value+'%'">
   <div style="font-size:12px;opacity:.65;margin-top:4px">The square is only a guide. The QR is read from the whole camera picture.</div>
