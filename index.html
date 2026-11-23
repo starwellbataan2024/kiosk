@@ -8,18 +8,18 @@
 *{box-sizing:border-box}
 :root{--fg:#f6efe8;--cd:rgba(255,255,255,.07);--bd:rgba(255,255,255,.14);--ac:#f3e3d0;--acf:#2a1c12;--ib:rgba(0,0,0,.35)}
 html,body{margin:0;min-height:100%}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--fg);display:flex;justify-content:center;padding:12px 14px 56px;min-height:100vh;background-attachment:fixed;background-size:cover;background-position:center}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--fg);display:flex;justify-content:center;padding:8px 10px 44px;min-height:100vh;background-attachment:fixed;background-size:cover;background-position:center}
 #dim{position:fixed;inset:0;background:#000;pointer-events:none;z-index:0}
-.wrap{width:100%;max-width:1100px;text-align:center;position:relative;z-index:1}
-.shop{font-size:clamp(22px,4vw,36px);font-weight:800;letter-spacing:.02em}
-.clk{font-size:clamp(34px,6vw,52px);font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
-.dt{opacity:.75;margin-bottom:10px}
+.wrap{width:100%;max-width:1500px;text-align:center;position:relative;z-index:1}
+.shop{font-size:calc(clamp(22px,4vw,36px)*var(--fs,1));font-weight:800;letter-spacing:.02em}
+.clk{font-size:calc(clamp(34px,6vw,52px)*var(--fs,1));font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.dt{opacity:.75;margin:0}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 4px 8px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:12px;text-align:left}#logo{height:calc(56px*var(--fs,1));max-width:40vw;object-fit:contain}.tm{text-align:right}
 .card{background:var(--cd);border:1px solid var(--bd);border-radius:22px;padding:12px;backdrop-filter:blur(8px)}
-.cam{position:relative;width:min(100%,calc((100vh - 250px)*1.3333));min-width:280px;aspect-ratio:4/3;margin:0 auto;background:#000;border-radius:18px;overflow:hidden}
+.cam{position:relative;width:100%;height:calc(100vh - 150px);min-height:300px;margin:0 auto;background:#000;border-radius:18px;overflow:hidden}
 .cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .frame{position:absolute;right:5%;bottom:7%;width:32%;aspect-ratio:1;border:4px solid var(--ac);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
-.fhint{position:absolute;left:0;right:0;top:10px;font-size:15px;color:#fff;text-shadow:0 1px 4px #000}
-.msg{margin:10px 4px 4px;min-height:1.6em;font-size:18px}
+.fhint{position:absolute;left:0;right:0;top:10px;font-size:calc(15px*var(--fs,1));color:#fff;text-shadow:0 1px 4px #000}
+.msg{margin:10px 4px 4px;min-height:1.6em;font-size:calc(18px*var(--fs,1))}
 .msg.bad{color:#ff8a7a}
 .row{display:flex;gap:8px;margin-top:10px;align-items:center}
 input,select,textarea{flex:1;font:inherit;padding:12px 14px;border-radius:12px;border:1px solid var(--bd);background:var(--ib);color:var(--fg);min-width:0}
@@ -29,15 +29,15 @@ input[type=range]{padding:0}
 button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:12px 18px;background:var(--ac);color:var(--acf);font-weight:600}
 button.g{background:var(--cd);color:var(--fg);border:1px solid var(--bd)}
 button:disabled{opacity:.4}
-.hi{font-size:28px;font-weight:700}
-.nx{font-size:20px;opacity:.85;margin:4px 0 10px}
+.hi{font-size:calc(28px*var(--fs,1));font-weight:700}
+.nx{font-size:calc(20px*var(--fs,1));opacity:.85;margin:4px 0 10px}
 .dots{display:flex;gap:12px;justify-content:center;margin:10px 0}
 .dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--fg)}
 .dots i.on{background:var(--fg)}
 .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:340px;margin:10px auto}
-.pad button{font-size:26px;padding:16px 0;background:var(--cd);color:var(--fg);border:1px solid var(--bd)}
-.res{padding:26px 8px}.res .ic{font-size:64px}
-.big{font-size:30px;font-weight:700}.big2{font-size:22px;opacity:.9;margin-top:4px}
+.pad button{font-size:calc(26px*var(--fs,1));padding:16px 0;background:var(--cd);color:var(--fg);border:1px solid var(--bd)}
+.res{padding:26px 8px}.res .ic{font-size:calc(64px*var(--fs,1))}
+.big{font-size:calc(30px*var(--fs,1));font-weight:700}.big2{font-size:calc(22px*var(--fs,1));opacity:.9;margin-top:4px}
 .foot{position:fixed;left:0;right:0;bottom:0;padding:8px 14px calc(8px + env(safe-area-inset-bottom));font-size:13px;display:flex;justify-content:space-between;gap:16px;z-index:2}
 .foot a{color:var(--fg);opacity:.7;cursor:pointer;text-decoration:underline}
 .ok{color:#2fae63}.bd{color:#e5584c}
@@ -50,9 +50,7 @@ button:disabled{opacity:.4}
 <body>
 <div id="dim"></div>
 <div class="wrap">
-  <div class="shop" id="shop"></div>
-  <div class="clk" id="clk">--:--</div>
-  <div class="dt" id="dt"></div>
+  <div class="top"><div class="brand"><img id="logo" alt="" style="display:none"><div class="shop" id="shop"></div></div><div class="tm"><div class="clk" id="clk">--:--</div><div class="dt" id="dt"></div></div></div>
   <div class="card" id="box"></div>
 </div>
 <div id="set"></div>
@@ -189,7 +187,7 @@ ocean:['Ocean',{b1:'#0f5c6b',b2:'#06222a',fg:'#e8fbff',cd:'rgba(255,255,255,.08)
 forest:['Forest',{b1:'#1f5a3a',b2:'#0a2216',fg:'#eefaf1',cd:'rgba(255,255,255,.08)',bd:'rgba(255,255,255,.16)',ac:'#9be8b6',acf:'#08301a',ib:'rgba(0,0,0,.3)'}],
 rose:['Rose',{b1:'#7a2c47',b2:'#2a0d19',fg:'#fff0f5',cd:'rgba(255,255,255,.08)',bd:'rgba(255,255,255,.16)',ac:'#ffc2d6',acf:'#4a1127',ib:'rgba(0,0,0,.3)'}],
 light:['Light',{b1:'#fff7ee',b2:'#e9dccb',fg:'#2a1c12',cd:'rgba(255,255,255,.75)',bd:'rgba(0,0,0,.12)',ac:'#3b2a1f',acf:'#ffffff',ib:'rgba(255,255,255,.95)'}]};
-const UI0={name:'',theme:'coffee',accent:'',bg:'theme',bgColor:'#222222',bgImg:'',dim:30,lock:''};
+const UI0={name:'',theme:'coffee',accent:'',bg:'theme',bgColor:'#222222',bgImg:'',dim:30,lock:'',logo:'',fs:100};
 let UI=Object.assign({},UI0);try{UI=Object.assign({},UI0,JSON.parse(localStorage.getItem('bc_ui')||'{}'))}catch(e){}
 function applyUI(u){u=u||UI;const t=(TH[u.theme]||TH.coffee)[1],r=document.documentElement.style;
   for(const k of ['fg','cd','bd','ac','acf','ib','b2'])r.setProperty('--'+k,t[k]);
@@ -198,6 +196,7 @@ function applyUI(u){u=u||UI;const t=(TH[u.theme]||TH.coffee)[1],r=document.docum
   if(u.bg==='image'&&u.bgImg){b.background='url('+u.bgImg+') center/cover fixed'}
   else if(u.bg==='color'){b.background=u.bgColor}
   else b.background='radial-gradient(1200px 700px at 20% -10%,'+t.b1+' 0,'+t.b2+' 60%) fixed';
+  r.setProperty('--fs',(u.fs||100)/100);const lg=$('#logo');if(u.logo){lg.src=u.logo;lg.style.display=''}else{lg.removeAttribute('src');lg.style.display='none'}
   $('#dim').style.opacity=u.bg==='image'?(u.dim/100):0;
   const n=(u.name||INFO.shop||'').trim();$('#shop').textContent=n;document.title=(n?n+' - ':'')+'Time Clock'}
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -209,6 +208,8 @@ async function openSet(){
 function drawSet(){const d=DR;
   $('#set').style.display='flex';$('#set').innerHTML=`<div class="p"><h3>Kiosk settings</h3>
   <label>Shop name (leave empty to use the name from BrewCost)</label><input id="sn" value="${esc(d.name)}" placeholder="${esc(INFO.shop||'Shop name')}" oninput="DR.name=this.value;applyUI(DR)">
+  <label>Company logo</label><div class="row" style="margin:0"><input type="file" accept="image/*" onchange="pickLogo(this)">${d.logo?'<button class="g" onclick="DR.logo=\'\';drawSet();applyUI(DR)">Remove</button>':''}</div>
+  <label>Text size: ${d.fs||100}%</label><input type="range" min="80" max="160" step="5" value="${d.fs||100}" oninput="DR.fs=+this.value;applyUI(DR);this.previousElementSibling.textContent='Text size: '+this.value+'%'">
   <label>Theme</label><div class="chips">${Object.keys(TH).map(k=>`<button class="${d.theme===k?'on':'g'}" onclick="DR.theme='${k}';DR.accent='';drawSet();applyUI(DR)">${TH[k][0]}</button>`).join('')}</div>
   <label>Button / highlight colour</label><div class="row" style="margin:0"><input type="color" value="${d.accent||(TH[d.theme]||TH.coffee)[1].ac}" oninput="DR.accent=this.value;applyUI(DR)"><button class="g" onclick="DR.accent='';drawSet();applyUI(DR)">Use theme colour</button></div>
   <label>Background</label><select onchange="DR.bg=this.value;drawSet();applyUI(DR)"><option value="theme" ${d.bg==='theme'?'selected':''}>Theme colours</option><option value="color" ${d.bg==='color'?'selected':''}>One solid colour</option><option value="image" ${d.bg==='image'?'selected':''}>My picture</option></select>
@@ -217,6 +218,8 @@ function drawSet(){const d=DR;
   <label>Settings PIN (optional, stops employees from opening this panel)</label><div class="row" style="margin:0"><input id="sp" inputmode="numeric" maxlength="6" placeholder="${d.lock?'PIN is set. Type a new one to change':'4 to 6 digits'}">${d.lock?'<button class="g" onclick="rmLock()">Remove PIN</button>':''}</div>
   <div class="row" style="margin-top:16px"><button style="flex:1" onclick="saveSet()">Save</button><button class="g" onclick="closeSet(1)">Cancel</button></div>
   <div class="row"><button class="g" style="flex:1" onclick="DR=Object.assign({},UI0,{lock:DR.lock});drawSet();applyUI(DR)">Reset look</button><button class="g" style="flex:1" onclick="closeSet(1);setupScreen()">Change setup code</button></div></div>`}
+function pickLogo(inp){const f=inp.files&&inp.files[0];if(!f)return;const u=URL.createObjectURL(f),i=new Image();
+  i.onload=()=>{const k=Math.min(1,360/i.naturalHeight,720/i.naturalWidth),c=document.createElement('canvas');c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);DR.logo=c.toDataURL('image/png');applyUI(DR);drawSet()};i.src=u}
 function rmLock(){DR.lock='';drawSet()}
 function pickBg(inp){const f=inp.files&&inp.files[0];if(!f)return;const u=URL.createObjectURL(f),i=new Image();
   i.onload=()=>{const w=Math.min(1280,i.naturalWidth),c=document.createElement('canvas');c.width=w;c.height=Math.round(i.naturalHeight*w/i.naturalWidth);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);DR.bgImg=c.toDataURL('image/jpeg',.72);applyUI(DR)};i.src=u}
