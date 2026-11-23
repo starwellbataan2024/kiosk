@@ -15,9 +15,9 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;colo
 .clk{font-size:calc(clamp(34px,6vw,52px)*var(--fs,1));font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
 .dt{opacity:.75;margin:0}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 4px 8px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:12px;text-align:left}#logo{height:calc(56px*var(--fs,1));max-width:40vw;object-fit:contain}.tm{text-align:right}
 .card{background:var(--cd);border:1px solid var(--bd);border-radius:22px;padding:12px;backdrop-filter:blur(8px)}
-.cam{position:relative;width:100%;height:calc(100vh - 150px);min-height:300px;margin:0 auto;background:#000;border-radius:18px;overflow:hidden}
-.cam video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-.frame{position:absolute;right:5%;bottom:7%;width:32%;aspect-ratio:1;border:4px solid var(--ac);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
+.cam{position:relative;width:100%;height:calc((100vh - 150px)*var(--ch,1));min-height:260px;margin:0 auto;background:#000;border-radius:18px;overflow:hidden}
+.cam video{width:100%;height:100%;object-fit:var(--fit,contain);transform:scaleX(-1)}
+.frame{position:absolute;right:5%;bottom:7%;width:calc(var(--qs,32)*1%);aspect-ratio:1;border:4px solid var(--ac);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
 .fhint{position:absolute;left:0;right:0;top:10px;font-size:calc(15px*var(--fs,1));color:#fff;text-shadow:0 1px 4px #000}
 .msg{margin:10px 4px 4px;min-height:1.6em;font-size:calc(18px*var(--fs,1))}
 .msg.bad{color:#ff8a7a}
@@ -187,7 +187,7 @@ ocean:['Ocean',{b1:'#0f5c6b',b2:'#06222a',fg:'#e8fbff',cd:'rgba(255,255,255,.08)
 forest:['Forest',{b1:'#1f5a3a',b2:'#0a2216',fg:'#eefaf1',cd:'rgba(255,255,255,.08)',bd:'rgba(255,255,255,.16)',ac:'#9be8b6',acf:'#08301a',ib:'rgba(0,0,0,.3)'}],
 rose:['Rose',{b1:'#7a2c47',b2:'#2a0d19',fg:'#fff0f5',cd:'rgba(255,255,255,.08)',bd:'rgba(255,255,255,.16)',ac:'#ffc2d6',acf:'#4a1127',ib:'rgba(0,0,0,.3)'}],
 light:['Light',{b1:'#fff7ee',b2:'#e9dccb',fg:'#2a1c12',cd:'rgba(255,255,255,.75)',bd:'rgba(0,0,0,.12)',ac:'#3b2a1f',acf:'#ffffff',ib:'rgba(255,255,255,.95)'}]};
-const UI0={name:'',theme:'coffee',accent:'',bg:'theme',bgColor:'#222222',bgImg:'',dim:30,lock:'',logo:'',fs:100};
+const UI0={name:'',theme:'coffee',accent:'',bg:'theme',bgColor:'#222222',bgImg:'',dim:30,lock:'',logo:'',fs:100,fit:'contain',camh:100,qs:32};
 let UI=Object.assign({},UI0);try{UI=Object.assign({},UI0,JSON.parse(localStorage.getItem('bc_ui')||'{}'))}catch(e){}
 function applyUI(u){u=u||UI;const t=(TH[u.theme]||TH.coffee)[1],r=document.documentElement.style;
   for(const k of ['fg','cd','bd','ac','acf','ib','b2'])r.setProperty('--'+k,t[k]);
@@ -196,7 +196,7 @@ function applyUI(u){u=u||UI;const t=(TH[u.theme]||TH.coffee)[1],r=document.docum
   if(u.bg==='image'&&u.bgImg){b.background='url('+u.bgImg+') center/cover fixed'}
   else if(u.bg==='color'){b.background=u.bgColor}
   else b.background='radial-gradient(1200px 700px at 20% -10%,'+t.b1+' 0,'+t.b2+' 60%) fixed';
-  r.setProperty('--fs',(u.fs||100)/100);const lg=$('#logo');if(u.logo){lg.src=u.logo;lg.style.display=''}else{lg.removeAttribute('src');lg.style.display='none'}
+  r.setProperty('--ch',(u.camh||100)/100);r.setProperty('--fit',u.fit||'contain');r.setProperty('--qs',u.qs||32);r.setProperty('--fs',(u.fs||100)/100);const lg=$('#logo');if(u.logo){lg.src=u.logo;lg.style.display=''}else{lg.removeAttribute('src');lg.style.display='none'}
   $('#dim').style.opacity=u.bg==='image'?(u.dim/100):0;
   const n=(u.name||INFO.shop||'').trim();$('#shop').textContent=n;document.title=(n?n+' - ':'')+'Time Clock'}
 async function sha(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -210,6 +210,10 @@ function drawSet(){const d=DR;
   <label>Shop name (leave empty to use the name from BrewCost)</label><input id="sn" value="${esc(d.name)}" placeholder="${esc(INFO.shop||'Shop name')}" oninput="DR.name=this.value;applyUI(DR)">
   <label>Company logo</label><div class="row" style="margin:0"><input type="file" accept="image/*" onchange="pickLogo(this)">${d.logo?'<button class="g" onclick="DR.logo=\'\';drawSet();applyUI(DR)">Remove</button>':''}</div>
   <label>Text size: ${d.fs||100}%</label><input type="range" min="80" max="160" step="5" value="${d.fs||100}" oninput="DR.fs=+this.value;applyUI(DR);this.previousElementSibling.textContent='Text size: '+this.value+'%'">
+  <label>Camera view</label><select onchange="DR.fit=this.value;applyUI(DR)"><option value="contain" ${d.fit!=='cover'?'selected':''}>Show the whole picture (no zoom)</option><option value="cover" ${d.fit==='cover'?'selected':''}>Fill the box (zoomed in)</option></select>
+  <label>Camera size: ${d.camh||100}%</label><input type="range" min="50" max="100" step="5" value="${d.camh||100}" oninput="DR.camh=+this.value;applyUI(DR);this.previousElementSibling.textContent='Camera size: '+this.value+'%'">
+  <label>QR square size: ${d.qs||32}%</label><input type="range" min="12" max="45" step="1" value="${d.qs||32}" oninput="DR.qs=+this.value;applyUI(DR);this.previousElementSibling.textContent='QR square size: '+this.value+'%'">
+  <div style="font-size:12px;opacity:.65;margin-top:4px">The square is only a guide. The QR is read from the whole camera picture.</div>
   <label>Theme</label><div class="chips">${Object.keys(TH).map(k=>`<button class="${d.theme===k?'on':'g'}" onclick="DR.theme='${k}';DR.accent='';drawSet();applyUI(DR)">${TH[k][0]}</button>`).join('')}</div>
   <label>Button / highlight colour</label><div class="row" style="margin:0"><input type="color" value="${d.accent||(TH[d.theme]||TH.coffee)[1].ac}" oninput="DR.accent=this.value;applyUI(DR)"><button class="g" onclick="DR.accent='';drawSet();applyUI(DR)">Use theme colour</button></div>
   <label>Background</label><select onchange="DR.bg=this.value;drawSet();applyUI(DR)"><option value="theme" ${d.bg==='theme'?'selected':''}>Theme colours</option><option value="color" ${d.bg==='color'?'selected':''}>One solid colour</option><option value="image" ${d.bg==='image'?'selected':''}>My picture</option></select>
