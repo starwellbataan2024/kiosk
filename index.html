@@ -112,7 +112,9 @@ async function startCam(){
   const bad=e=>{S.camBad=1;const m=$('#m');if(m){m.className='msg bad';m.innerHTML=esc(camErr(e))+'<div class="row" style="justify-content:center"><button onclick="startCam()">Try again</button></div>'+(INFO.manual?'<div style="font-size:13px;opacity:.8;margin-top:6px">Or type your employee number below.</div>':'')}};
   try{if(!S.stream)S.stream=await openCam();if(S.mode==='scan'||S.mode==='pin')attach();S.camBad=0;const m=$('#m');if(m&&S.mode==='scan'){m.className='msg';m.textContent='Hold your QR card next to your face'}}
   catch(e){bad(e);return}
-  try{await needLib();clearInterval(S.sc);S.sc=setInterval(loop,280)}
+  try{const t=S.stream.getVideoTracks()[0],cp=t.getCapabilities&&t.getCapabilities();if(cp&&cp.focusMode&&cp.focusMode.includes('continuous'))t.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+  if(S.bd===undefined){S.bd=null;if('BarcodeDetector' in window){try{S.bd=new BarcodeDetector({formats:['qr_code']})}catch(e){S.bd=null}}}
+  try{if(!S.bd)await needLib();clearInterval(S.sc);S.sc=setInterval(loop,120)}
   catch(e){const m=$('#m');if(m){m.className='msg bad';m.textContent='Camera is on, but the QR reader could not load. Check the internet.'}}
 }
 function attach(){const v=$('#v');if(v&&S.stream&&v.srcObject!==S.stream){v.srcObject=S.stream;v.play&&v.play().catch(()=>{})}
@@ -129,12 +131,15 @@ function fitFrame(){const b=$('.cam'),v=$('#v'),f=$('.frame');if(!b||!v||!f)retu
 addEventListener('resize',fitFrame);
 function grab(w){const v=$('#v');if(!S.stream||!v||!v.videoWidth)return '';const c=document.createElement('canvas');c.width=w;c.height=Math.round(v.videoHeight*w/v.videoWidth);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.6)}
 /* ONE picture: the frame where the QR is read (face + QR together) is the punch photo. */
-function loop(){
-  if(S.mode!=='scan'||S.busy||!window.jsQR)return;const v=$('#v');if(!v||!v.videoWidth)return;
-  const w=480,h=Math.round(v.videoHeight*w/v.videoWidth),c=S.cv||(S.cv=document.createElement('canvas'));c.width=w;c.height=h;
-  const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(v,0,0,w,h);
-  const r=jsQR(x.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});
-  if(r&&/^BC1\|/.test(r.data)){S.snap=c.toDataURL('image/jpeg',.6);who(r.data)}
+function beep(){try{navigator.vibrate&&navigator.vibrate(40);const A=window.AC||(window.AC=new(window.AudioContext||window.webkitAudioContext)());A.resume&&A.resume();const o=A.createOscillator(),g=A.createGain();o.frequency.value=1200;g.gain.value=.08;o.connect(g);g.connect(A.destination);o.start();o.stop(A.currentTime+.08)}catch(e){}}
+async function loop(){
+  if(S.mode!=='scan'||S.busy||S.lp)return;const v=$('#v');if(!v||!v.videoWidth||v.readyState<2)return;S.lp=1;
+  try{let data=null;
+    if(S.bd){const r=await S.bd.detect(v);if(r.length)data=r[0].rawValue}
+    else if(window.jsQR){const w=640,h=Math.round(v.videoHeight*w/v.videoWidth),c=S.cv||(S.cv=document.createElement('canvas'));c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(v,0,0,w,h);const r=jsQR(x.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});if(r)data=r.data}
+    if(data&&/^BC1\|/.test(data)&&S.mode==='scan'&&!S.busy){S.snap=grab(480);beep();who(data)}
+  }catch(e){if(e&&e.name==='NotSupportedError'&&S.bd){S.bd=null;needLib().catch(()=>{})}}
+  finally{S.lp=0}
 }
 async function fromFile(inp){
   const f=inp.files&&inp.files[0];inp.value='';if(!f||S.busy)return;
@@ -157,22 +162,26 @@ function scan(msg,bad){
 }
 async function who(code){
   if(S.busy||!code)return;S.busy=1;if(!S.snap)S.snap=grab(480);
-  try{const w=await api('clockWho',{code:code});
+  /* the PIN pad opens at once; the name is filled in as soon as the server answers */
+  S.code=code;S.who=null;S.pin='';S.mode='pin';S.busy=0;pinUI();
+  const p=S.wp=api('clockWho',{code:code});
+  try{const w=await p;if(S.wp!==p)return;
     if(w.done){back('You already finished all 4 punches today, '+w.Name+'.',false,3500);return}
-    S.code=code;S.who=w;S.pin='';S.mode='pin';S.busy=0;pinUI()}
-  catch(e){if(/Kiosk key is not valid|not set up/.test(e.message)){setupScreen(e.message);return}back(e.message||String(e),true,3500)}
+    S.who=w;if(S.mode==='pin')pinUI()}
+  catch(e){if(S.wp!==p)return;if(/Kiosk key is not valid|not set up/.test(e.message)){setupScreen(e.message);return}back(e.message||String(e),true,3500)}
 }
 function back(msg,bad,ms){S.busy=1;S.mode='wait';$('#box').innerHTML=`<div class="res"><div class="ic ${bad?'bd':''}">${bad?'&#10060;':'&#8505;&#65039;'}</div><div class="big" style="font-size:22px">${esc(msg)}</div></div>`;clearTimeout(S.to);S.to=setTimeout(()=>scan(),ms||3000)}
 function pinUI(msg){
-  const w=S.who,d='<i class="on"></i>'.repeat(S.pin.length)+'<i></i>'.repeat(Math.max(0,4-S.pin.length));
-  $('#box').innerHTML=`<div class="hi">Hi, ${esc(w.Name)}!</div><div class="nx">${esc(w.label)}</div><div class="dots">${d}</div><div class="msg bad">${esc(msg||'')}</div><div class="pad">${[1,2,3,4,5,6,7,8,9,'C',0,'DEL'].map(k=>`<button type="button" onclick="key('${k}')">${k==='DEL'?'&#9003;':k}</button>`).join('')}</div><div class="row" style="justify-content:center"><button class="g" onclick="scan()">Cancel</button><button onclick="submit()" ${S.pin.length<4?'disabled':''} style="padding:12px 40px">OK</button></div>`;
+  const w=S.who||{Name:'',label:''},d='<i class="on"></i>'.repeat(S.pin.length)+'<i></i>'.repeat(Math.max(0,4-S.pin.length));
+  $('#box').innerHTML=`<div class="hi">${w.Name?'Hi, '+esc(w.Name)+'!':'Hi!'}</div><div class="nx">${esc(w.label||'Enter your PIN')}</div><div class="dots">${d}</div><div class="msg bad">${esc(msg||'')}</div><div class="pad">${[1,2,3,4,5,6,7,8,9,'C',0,'DEL'].map(k=>`<button type="button" onclick="key('${k}')">${k==='DEL'?'&#9003;':k}</button>`).join('')}</div><div class="row" style="justify-content:center"><button class="g" onclick="scan()">Cancel</button><button onclick="submit()" ${S.pin.length<4?'disabled':''} style="padding:12px 40px">OK</button></div>`;
 }
 function key(k){if(S.mode!=='pin'||S.busy)return;if(k==='C')S.pin='';else if(k==='DEL')S.pin=S.pin.slice(0,-1);else if(S.pin.length<6)S.pin+=k;pinUI()}
 addEventListener('keydown',e=>{if(S.mode!=='pin'||S.busy)return;if(/^\d$/.test(e.key))key(e.key);else if(e.key==='Backspace')key('DEL');else if(e.key==='Enter'&&S.pin.length>=4)submit()});
+function sendPhoto(pid,tok,photo,n){api('clockPhoto',{pid:pid,tok:tok,photo:photo}).catch(()=>{if(n<2)setTimeout(()=>sendPhoto(pid,tok,photo,n+1),6000)})}
 async function submit(){
-  if(S.busy||S.pin.length<4)return;S.busy=1;const photo=INFO.photo>0?S.snap:'';
-  try{const r=await api('clockPunch',{code:S.code,pin:S.pin,photo:photo});S.mode='wait';
-    $('#box').innerHTML=`<div class="res"><div class="ic ok">&#9989;</div><div class="big">${esc(r.Name)}</div><div class="big2">${esc(r.label)} &middot; ${esc(t12(r.time))}</div>${r.last?'<div class="msg">Thank you, see you tomorrow!</div>':''}${r.photo?'':'<div class="msg" style="font-size:14px;opacity:.7">No photo was saved.</div>'}</div>`;
+  if(S.busy||S.pin.length<4)return;S.busy=1;if(!S.who){try{await S.wp}catch(e){return}if(!S.who)return}const photo=INFO.photo>0?S.snap:'';
+  try{const need=INFO.photo===2,r=await api('clockPunch',{code:S.code,pin:S.pin,photo:need?photo:'',later:!need&&!!photo});if(r.pid&&r.tok&&photo)sendPhoto(r.pid,r.tok,photo,0);S.mode='wait';
+    $('#box').innerHTML=`<div class="res"><div class="ic ok">&#9989;</div><div class="big">${esc(r.Name)}</div><div class="big2">${esc(r.label)} &middot; ${esc(t12(r.time))}</div>${r.last?'<div class="msg">Thank you, see you tomorrow!</div>':''}${r.photo||r.pid||INFO.photo===0?'':'<div class="msg" style="font-size:14px;opacity:.7">No photo was saved.</div>'}</div>`;
     clearTimeout(S.to);S.to=setTimeout(()=>scan(),3500)}
   catch(e){const m=e.message||String(e);if(/Wrong PIN/.test(m)&&!/Locked/.test(m)){S.busy=0;S.pin='';pinUI(m)}else back(m,true,3500)}
 }
@@ -189,6 +198,7 @@ async function start(){
   startCam();
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
 }
+setInterval(()=>{if(S.mode==='scan'&&!S.busy&&loadCfg())api('clockInfo').catch(()=>{})},240000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}if(S.mode==='scan'&&S.stream&&!S.stream.active)startCam()}});
 
 /* ---------- look & settings (saved on this tablet only) ---------- */
